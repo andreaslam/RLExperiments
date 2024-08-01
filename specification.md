@@ -9,7 +9,7 @@
 ### Design Specifications
 
 #### The `Agent` Class
-The `Agent` class handles the storage, accessing and processing of Q-values stored. The learning algorithm is based on Temporal Difference Learning (TDL) of Q-values (state-action values). 
+The `Agent` class handles the storage, accessing and processing of Q-values stored. The learning algorithm is based on Temporal Difference learning (TD) of Q-values (state-action values). 
 
 The `Agent` takes in the following parameters:
 
