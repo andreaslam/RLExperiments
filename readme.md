@@ -1,6 +1,6 @@
 <center>
 <h1>RLExperiments</h1>
-<p>A Work-In-Progress Reinforcement Learning Environment Powered by MuJoCo</p>
+<p>A Temporal Difference Learning Agent Powered by MuJoCo</p>
 </center>
 
 ## About this Project
