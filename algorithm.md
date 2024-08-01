@@ -28,5 +28,5 @@ pi(s,a) = argmax_a(Q(s,a))
 
 ### State Action update (undiscounted)
 
-Q(s_t,a_t) = r_t * Q(s_t+1,a_t+1)
+Q(s_t,a_t) = r_t + Q(s_t+1,a_t+1)
 
