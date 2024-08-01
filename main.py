@@ -1,94 +1,92 @@
 import gymnasium as gym
-import random
+import pickle
 from tqdm import tqdm
-import torch
-import trainer
-import buffer
-import model
-import torch.optim as optim
+import os
+from table import Agent
+from plotter import SimulationReturnPlotter
 
 # configure gymnasium setup
 
-# env = gym.make("ALE/Blackjack-v5", render_mode="human")
-env = gym.make("CartPole-v1")
+IS_RENDER = True
+GAME = "CartPole-v1"
+
+Q_TABLE_PATH = "agents"
+
+if not os.path.exists(Q_TABLE_PATH):
+    
+    os.makedirs(Q_TABLE_PATH)
+    print("Directory created successfully!")
+else:
+    print("Directory already exists!")
+
+
+
+if IS_RENDER:
+    env = gym.make(GAME, render_mode="human")
+else:
+    env = gym.make(GAME)
+
 
 observation, info = env.reset()
+observation_space = observation.shape
+action_space = env.action_space.n
 
-# load neural networks
-if torch.cuda.is_available():
-    device = "cuda"
-elif torch.backends.mps.is_available():
-    device = "mps"
-else:
-    device = "cpu"
+# training settings
 
-observation_space = len(observation.reshape(-1))
-action_space = env.action_space.n.item()
-
-agent_net = torch.jit.script(
-    model.AgentNet(observation_space, action_space, num_hidden_nodes=100, num_layers=5)
-).to(device)
-
-agent_trainer = trainer.Trainer(optim.AdamW(agent_net.parameters(), lr=1e-3))
-agent_net.eval()
-with torch.no_grad():
-    torch.jit.save(agent_net, agent_trainer.path_name)
-
-# training loop
-
-TOTAL_TRAINING_STEPS = 100000000
+TOTAL_TRAINING_STEPS = 100000
 GAMMA_DISCOUNT_FACTOR = 0.99
-EPSILON_GREEDY_FACTOR = 0.9
-
-REPLAY_BUFFER_SIZE = 4096
-REPLAY_BUFFER_SAMPLE_SIZE = 2048
+EPSILON_GREEDY_FACTOR = 0.99
 
 
-replay_buffer = buffer.ReplayBuffer(
-    max_buffer_size=REPLAY_BUFFER_SIZE, batch_size=REPLAY_BUFFER_SAMPLE_SIZE
-)
+q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
 
-simulation = buffer.Simulation()
+# check if Q-table exists
 
-for _ in tqdm(range(TOTAL_TRAINING_STEPS), desc="training neural network"):
-    nn_inputs = torch.tensor(observation, dtype=torch.float32).to(device).reshape(-1)
-    nn_value_logits, nn_policy_logits = agent_net(nn_inputs.unsqueeze(0))
-    nn_value, nn_q_head = (
-        nn_value_logits.squeeze().cpu(),
-        nn_policy_logits.squeeze().cpu(),
-    )
+if os.path.isfile(q_table_path):
+    print("loading existing Q Table")
+    if os.path.getsize(q_table_path) > 0:      
+        with open(q_table_path, "rb") as f:
+            unpickler = pickle.Unpickler(f)
+            q_table = unpickler.load()
+else:
+    # initialise Q-table
+    print("Initialising new Q Table")
+    q_table = []
 
-    # add policy noise to increase exploration
+agent = Agent(q_table, action_space, GAMMA_DISCOUNT_FACTOR, EPSILON_GREEDY_FACTOR)
 
-    if random.random() > EPSILON_GREEDY_FACTOR:
-        actions = (
-            torch.tensor([random.uniform(-1.0, 1.0) for _ in range(len(nn_q_head))])
-            * nn_q_head
-        )
+plotter = SimulationReturnPlotter()
 
-    else:
-        actions = nn_q_head
+simulation_return = 0.0
 
-    # env.render()
+for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
+    action = agent.get_action(observation)
 
-    position_data = env.step(actions.cpu().detach().numpy().argmax())
+    observation_prev = observation
+    observation, reward, terminated, truncated, info = env.step(action)
 
-    position = buffer.Position(position_data, actions)
+    agent.update_q_estimate(observation_prev, action, reward, observation)
 
-    simulation.append_position(position)
+    simulation_return += reward * (time_step**GAMMA_DISCOUNT_FACTOR)
 
-    observation, reward, terminated, truncated, info = position_data
+    if IS_RENDER:
+        env.render()
 
     if terminated or truncated:
         observation, info = env.reset()
-        replay_buffer.import_positions(simulation.export_positions())
-        simulation = buffer.Simulation()
+        print(
+            f"discounted reward (factor: {GAMMA_DISCOUNT_FACTOR}):, {simulation_return}"
+        )
+        plotter.register_datapoint(simulation_return, "TDAgent")
 
-    if replay_buffer.get_buffer_capacity() >= replay_buffer.max_buffer_size:
-        agent_net.train()
-        agent_trainer.train_step(replay_buffer.sample_batch())
-        agent_net.eval()
-        with torch.no_grad():
-            torch.jit.save(agent_net, agent_trainer.path_name)
+        simulation_return = 0.0
+
+        with open(q_table_path, "wb") as f:
+            pickle.dump(agent.table, f)
 
 env.close()
+
+with open(q_table_path, "wb") as f:
+    pickle.dump(agent.table, f)
+
+plotter.plot()
