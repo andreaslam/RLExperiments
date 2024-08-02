@@ -17,8 +17,8 @@ class Agent:
         self,
         table,
         action_space,
-        gamma_discount_factor=0.9,
-        epsilon_greedy_factor=0.99,
+        gamma_discount_factor=0.99,
+        epsilon_greedy_factor=0.01,
         learning_rate=1e-3,
     ):
         """
@@ -36,6 +36,7 @@ class Agent:
         self.epsilon_greedy_factor = epsilon_greedy_factor
         self.learning_rate = learning_rate
         self.action_space = action_space
+        self.hits = 0
 
     def check_state_exists(self, state):
         """
@@ -47,7 +48,9 @@ class Agent:
         Returns:
             list or None: Q-values associated with the state if it exists, else None.
         """
-        return self.table.get(state)
+        if state in self.table:
+            return self.table[state]
+        return None
 
     def get_action(self, state):
         """
@@ -63,13 +66,15 @@ class Agent:
 
         if q_entry is None:
             q_entry = self.add_entry(state)
-
+        else:
+            self.hits += 1
         if random.random() < self.epsilon_greedy_factor:
             action = random.randint(0, self.action_space - 1)
         else:
             action = np.argmax(q_entry)
 
-        print(f"Selected action: {action}")
+
+        # print(f"Selected action: {action}")
         return action
 
     def update_q_estimate(self, state, action, reward, next_state):
@@ -95,8 +100,8 @@ class Agent:
         td_delta = td_target - current_q[action]
 
         current_q[action] += self.learning_rate * td_delta
-
-        print(f"Updated Q-value for state {state}, action {action}: {current_q}")
+        
+        # print(f"Updated Q-value for state {state}, action {action}: {current_q}")
 
     def add_entry(self, new_state):
         """
@@ -111,5 +116,5 @@ class Agent:
         new_entry = [random.uniform(-1, 1) for _ in range(self.action_space)]
         self.table[new_state] = new_entry
 
-        print(f"Added new state entry: {new_state}, Q-values: {new_entry}")
+        # print(f"Added new state entry: {new_state}, Q-values: {new_entry}")
         return new_entry

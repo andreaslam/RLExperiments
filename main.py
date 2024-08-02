@@ -32,7 +32,7 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 1000
+TOTAL_TRAINING_STEPS = 10000
 GAMMA_DISCOUNT_FACTOR = 0.99
 EPSILON_GREEDY_FACTOR = 0.01
 
@@ -58,30 +58,39 @@ plotter = SimulationReturnPlotter()
 
 simulation_return = 0.0
 
+len_sim = 0
+
 for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
     action = agent.get_action(tuple(np.array([np.round(x, 1) for x in observation])))
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
-
+    
     agent.update_q_estimate(tuple(np.array([np.round(x, 1) for x in observation_prev])), action, reward, tuple(np.array([np.round(x, 1) for x in observation])))
 
-    simulation_return += reward * (time_step**GAMMA_DISCOUNT_FACTOR)
 
     if IS_RENDER:
         env.render()
 
     if terminated or truncated:
+
         observation, info = env.reset()
-        print(
-            f"discounted reward (factor: {GAMMA_DISCOUNT_FACTOR}):, {simulation_return}"
-        )
+        # print(
+        #     f"discounted reward (factor: {GAMMA_DISCOUNT_FACTOR}):, {simulation_return}"
+        # )
         plotter.register_datapoint(simulation_return, "TDAgent")
 
         simulation_return = 0.0
-
+        # print("hitrate", agent.hits/len_sim)
+        agent.hits = 0
         with open(q_table_path, "wb") as f:
             pickle.dump(agent.table, f)
+        
+        len_sim = 0
+    
+    len_sim += 1
+    
+    simulation_return += reward * (len_sim**GAMMA_DISCOUNT_FACTOR)
 
 env.close()
 

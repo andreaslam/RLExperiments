@@ -3,6 +3,7 @@ import pickle
 from tqdm import tqdm
 import os
 from table import Agent
+import numpy as np
 from plotter import SimulationReturnPlotter
 
 # configure gymnasium setup
@@ -37,12 +38,12 @@ time_step = 0
 games_played = 0
 
 while games_played < num_games:
-    action = agent.get_action(observation)
+    action = agent.get_action(tuple(np.array([np.round(x) for x in observation])))
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
-    agent.update_q_estimate(observation_prev, action, reward, observation)
+    agent.update_q_estimate(tuple(np.array([np.round(x) for x in observation_prev])), action, reward, tuple(np.array([np.round(x) for x in observation])))
 
     simulation_return += reward * (time_step**GAMMA_DISCOUNT_FACTOR)
 
@@ -58,7 +59,6 @@ while games_played < num_games:
 
         simulation_return = 0.0
         time_step = 0
-
         games_played += 1
     time_step += 1
 
