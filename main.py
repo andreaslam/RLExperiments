@@ -19,7 +19,7 @@ if not os.path.exists(Q_TABLE_PATH):
 else:
     print("Directory already exists!")
 
-
+z
 if IS_RENDER:
     env = gym.make(GAME, render_mode="human")
 else:
