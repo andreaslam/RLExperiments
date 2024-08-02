@@ -65,15 +65,18 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
-    
-    agent.update_q_estimate(tuple(np.array([np.round(x, 1) for x in observation_prev])), action, reward, tuple(np.array([np.round(x, 1) for x in observation])))
 
+    agent.update_q_estimate(
+        tuple(np.array([np.round(x, 1) for x in observation_prev])),
+        action,
+        reward,
+        tuple(np.array([np.round(x, 1) for x in observation])),
+    )
 
     if IS_RENDER:
         env.render()
 
     if terminated or truncated:
-
         observation, info = env.reset()
         # print(
         #     f"discounted reward (factor: {GAMMA_DISCOUNT_FACTOR}):, {simulation_return}"
@@ -85,11 +88,11 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
         agent.hits = 0
         with open(q_table_path, "wb") as f:
             pickle.dump(agent.table, f)
-        
+
         len_sim = 0
-    
+
     len_sim += 1
-    
+
     simulation_return += reward * (len_sim**GAMMA_DISCOUNT_FACTOR)
 
 env.close()
