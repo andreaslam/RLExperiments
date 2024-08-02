@@ -32,9 +32,9 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = int(1e4)
-GAMMA_DISCOUNT_FACTOR = 0.99
-EPSILON_GREEDY_FACTOR = 0.01
+TOTAL_TRAINING_STEPS = int(10000)
+GAMMA_DISCOUNT_FACTOR = 0.9
+EPSILON_GREEDY_FACTOR = 0.1
 
 
 q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
@@ -52,7 +52,14 @@ else:
     print("Initialising new Q Table")
     q_table = {}
 
-agent = Agent(q_table, action_space, env, gamma_discount_factor=GAMMA_DISCOUNT_FACTOR)
+agent = Agent(
+    q_table,
+    action_space,
+    env,
+    gamma_discount_factor=GAMMA_DISCOUNT_FACTOR,
+    initial_epsilon_greedy_factor=EPSILON_GREEDY_FACTOR,
+    initial_learning_rate=1e-1,
+)
 
 plotter = SimulationReturnPlotter()
 

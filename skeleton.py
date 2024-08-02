@@ -5,14 +5,15 @@ import statistics
 import gymnasium as gym
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import pickle
 
-from table import Agen
+from table import Agent
 
 
 env = gym.make("CartPole-v1")
 
 discount = 0.9
-turns = 1000000
+turns = 10000000
 actions = (0, 1)
 
 # discretized state -> learned q-value
@@ -88,7 +89,14 @@ episode_length = 0
 state, info = env.reset()
 
 
-agent = Agent(q_table, env.action_space.n, env, gamma_discount_factor=0.99)
+agent = Agent(
+    q_table,
+    env.action_space.n,
+    env,
+    gamma_discount_factor=0.9,
+    initial_epsilon_greedy_factor=0.1,
+    initial_learning_rate=1e-1,
+)
 
 for turn in tqdm(range(turns), desc="updating q tables"):
     action = choose_action(state, agent)

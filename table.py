@@ -20,8 +20,10 @@ class Agent:
         action_space,
         env,
         gamma_discount_factor=0.99,
-        epsilon_greedy_factor=0.1,
-        learning_rate=1e-1,
+        initial_epsilon_greedy_factor=0.25,
+        initial_learning_rate=1e-1,
+        num_states_in_linspace=100,
+        parameter_decay_factor=0.9,
     ):
         """
         Initializes the Agent with necessary parameters.
@@ -36,11 +38,21 @@ class Agent:
         """
         self.table = table
         self.gamma_discount_factor = gamma_discount_factor
-        self.epsilon_greedy_factor = epsilon_greedy_factor
-        self.learning_rate = learning_rate
+        self.epsilon_greedy_factor = initial_epsilon_greedy_factor
+        self.learning_rate = initial_learning_rate
         self.action_space = action_space
+        self.num_states_in_linspace = num_states_in_linspace
         self.linspace_range = None
         self.env = env
+        self.steps = 0
+        self.delta_prev = 0.0
+        self.total_weights = 0.0
+        # TODO work on getting the average and stdev for preloaded tables
+        self.weights_average = 0.0
+        self.weights_stdev = 0.0
+        self.parameter_decay_factor = parameter_decay_factor
+        self.num_optimal = 0 # number of times the agent chose the greedy move
+        self.discretise_inputs()
 
     def check_state_exists(self, state):
         """
@@ -66,18 +78,27 @@ class Agent:
         Returns:
             int: Selected action index.
         """
+
         q_entry = self.check_state_exists(state)
 
         if q_entry is None:
             q_entry = self.add_entry(state)
-
+        
         if random.random() < self.epsilon_greedy_factor:
-            action = random.randint(0, self.action_space - 1)
+            action_logit = np.random.choice(q_entry, p=self.softmax(q_entry))
+            action = q_entry.index(action_logit)
+            self.num_optimal = 0
         else:
             action = np.argmax(q_entry)
+            self.num_optimal += 1
 
         return action
 
+    def softmax(self, x):
+        """Compute softmax values for each sets of scores in x."""
+        e_x = np.exp(x - np.max(x))
+        return e_x / e_x.sum(axis=0) 
+    
     def update_q_estimate(self, state, action, reward, next_state):
         """
         Updates the Q-value estimate based on the observed reward and next state.
@@ -99,10 +120,11 @@ class Agent:
 
         td_target = reward + self.gamma_discount_factor * best_next_action
         td_delta = td_target - current_q[action]
-
         current_q[action] += self.learning_rate * td_delta
 
         # print(f"Updated Q-value for state {state}, action {action}: {current_q}")
+
+        self.steps += 1
 
     def add_entry(self, new_state):
         """
@@ -114,24 +136,48 @@ class Agent:
         Returns:
             list: Initial Q-values assigned to the new state.
         """
-        new_entry = [random.uniform(-1, 1) for _ in range(self.action_space)]
+
+        # random.random() serves as fallback for if weights and standard deviation are 0
+
+        new_entry = [
+            random.uniform(
+                self.weights_average - self.weights_stdev - random.random(),
+                self.weights_average + self.weights_stdev + random.random(),
+            )
+            for _ in range(self.action_space)
+        ]
+        
+        # print(self.weights_average, self.weights_stdev, new_entry)
+        
         self.table[new_state] = new_entry
 
-        # print(f"Added new state entry: {new_state}, Q-values: {new_entry}")
+        self.calibrate_new_entries(new_entry)
+
         return new_entry
 
+    def calibrate_new_entries(self, new_entry):
+        self.total_weights += sum(new_entry)
+        self.weights_average = self.total_weights / len(self.table)
+        self.weights_stdev = np.sqrt(
+            max(self.total_weights / (len(self.table) - self.weights_average**2), 0)
+        ).item()
+
     def discretise_inputs(self):
+        def safe_bounds(low, high):
+            if low == -np.inf:
+                low = -100
+            if high == np.inf:
+                high = 100
+            return low, high
+
         self.linspace_range = np.array(
             [
-                np.linspace(low, high, 10)
-                for low, high in zip(
-                    self.env.observation_space.low, self.env.observation_space.high
-                )
+                np.linspace(max(low, 0.001), min(high, 100), self.num_states_in_linspace)
+                for low, high in [safe_bounds(low, high) for low, high in zip(self.env.observation_space.low, self.env.observation_space.high)]
             ]
         )
-
+    
     def quantise_to_linspace(self, values):
-        self.discretise_inputs()
         quantised_values = np.empty_like(values)
         for i, (val, linspace) in enumerate(zip(values, self.linspace_range)):
             quantised_values[i] = linspace[np.argmin(np.abs(linspace - val))]
