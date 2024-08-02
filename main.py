@@ -19,7 +19,7 @@ if not os.path.exists(Q_TABLE_PATH):
 else:
     print("Directory already exists!")
 
-z
+
 if IS_RENDER:
     env = gym.make(GAME, render_mode="human")
 else:
@@ -32,7 +32,7 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 10000
+TOTAL_TRAINING_STEPS = int(1e4)
 GAMMA_DISCOUNT_FACTOR = 0.99
 EPSILON_GREEDY_FACTOR = 0.01
 
@@ -52,7 +52,7 @@ else:
     print("Initialising new Q Table")
     q_table = {}
 
-agent = Agent(q_table, action_space, GAMMA_DISCOUNT_FACTOR, EPSILON_GREEDY_FACTOR)
+agent = Agent(q_table, action_space, env, gamma_discount_factor=GAMMA_DISCOUNT_FACTOR)
 
 plotter = SimulationReturnPlotter()
 
@@ -60,17 +60,19 @@ simulation_return = 0.0
 
 len_sim = 0
 
+# quantise inputs
+
 for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
-    action = agent.get_action(tuple(np.array([np.round(x, 1) for x in observation])))
+    action = agent.get_action(tuple(agent.quantise_to_linspace(observation)))
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
     agent.update_q_estimate(
-        tuple(np.array([np.round(x, 1) for x in observation_prev])),
+        tuple(agent.quantise_to_linspace(observation_prev)),
         action,
         reward,
-        tuple(np.array([np.round(x, 1) for x in observation])),
+        tuple(agent.quantise_to_linspace(observation)),
     )
 
     if IS_RENDER:
@@ -84,8 +86,6 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
         plotter.register_datapoint(simulation_return, "TDAgent")
 
         simulation_return = 0.0
-        # print("hitrate", agent.hits/len_sim)
-        agent.hits = 0
         with open(q_table_path, "wb") as f:
             pickle.dump(agent.table, f)
 

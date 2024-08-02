@@ -18,9 +18,10 @@ class Agent:
         self,
         table,
         action_space,
+        env,
         gamma_discount_factor=0.99,
-        epsilon_greedy_factor=0.01,
-        learning_rate=1e-3,
+        epsilon_greedy_factor=0.1,
+        learning_rate=1e-1,
     ):
         """
         Initializes the Agent with necessary parameters.
@@ -38,7 +39,8 @@ class Agent:
         self.epsilon_greedy_factor = epsilon_greedy_factor
         self.learning_rate = learning_rate
         self.action_space = action_space
-        self.hits = 0
+        self.linspace_range = None
+        self.env = env
 
     def check_state_exists(self, state):
         """
@@ -68,14 +70,12 @@ class Agent:
 
         if q_entry is None:
             q_entry = self.add_entry(state)
-        else:
-            self.hits += 1
+
         if random.random() < self.epsilon_greedy_factor:
             action = random.randint(0, self.action_space - 1)
         else:
             action = np.argmax(q_entry)
 
-        # print(f"Selected action: {action}")
         return action
 
     def update_q_estimate(self, state, action, reward, next_state):
@@ -119,3 +119,20 @@ class Agent:
 
         # print(f"Added new state entry: {new_state}, Q-values: {new_entry}")
         return new_entry
+
+    def discretise_inputs(self):
+        self.linspace_range = np.array(
+            [
+                np.linspace(low, high, 10)
+                for low, high in zip(
+                    self.env.observation_space.low, self.env.observation_space.high
+                )
+            ]
+        )
+
+    def quantise_to_linspace(self, values):
+        self.discretise_inputs()
+        quantised_values = np.empty_like(values)
+        for i, (val, linspace) in enumerate(zip(values, self.linspace_range)):
+            quantised_values[i] = linspace[np.argmin(np.abs(linspace - val))]
+        return quantised_values
