@@ -6,7 +6,7 @@ from table import Agent
 from plotter import SimulationReturnPlotter
 
 # configure gymnasium setup
-env = gym.make("CartPole-v1")
+env = gym.make("CartPole-v1", render_mode="human")
 
 observation, info = env.reset()
 observation_space = observation.shape

@@ -3,22 +3,21 @@ import pickle
 from tqdm import tqdm
 import os
 from table import Agent
+import numpy as np
 from plotter import SimulationReturnPlotter
 
 # configure gymnasium setup
 
-IS_RENDER = True
+IS_RENDER = False
 GAME = "CartPole-v1"
 
 Q_TABLE_PATH = "agents"
 
 if not os.path.exists(Q_TABLE_PATH):
-    
     os.makedirs(Q_TABLE_PATH)
     print("Directory created successfully!")
 else:
     print("Directory already exists!")
-
 
 
 if IS_RENDER:
@@ -33,9 +32,9 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 100000
+TOTAL_TRAINING_STEPS = 1000
 GAMMA_DISCOUNT_FACTOR = 0.99
-EPSILON_GREEDY_FACTOR = 0.99
+EPSILON_GREEDY_FACTOR = 0.01
 
 
 q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
@@ -44,14 +43,14 @@ q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
 
 if os.path.isfile(q_table_path):
     print("loading existing Q Table")
-    if os.path.getsize(q_table_path) > 0:      
+    if os.path.getsize(q_table_path) > 0:
         with open(q_table_path, "rb") as f:
             unpickler = pickle.Unpickler(f)
             q_table = unpickler.load()
 else:
     # initialise Q-table
     print("Initialising new Q Table")
-    q_table = []
+    q_table = {}
 
 agent = Agent(q_table, action_space, GAMMA_DISCOUNT_FACTOR, EPSILON_GREEDY_FACTOR)
 
@@ -60,12 +59,12 @@ plotter = SimulationReturnPlotter()
 simulation_return = 0.0
 
 for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
-    action = agent.get_action(observation)
+    action = agent.get_action(tuple(np.array([np.round(x, 1) for x in observation])))
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
-    agent.update_q_estimate(observation_prev, action, reward, observation)
+    agent.update_q_estimate(tuple(np.array([np.round(x, 1) for x in observation_prev])), action, reward, tuple(np.array([np.round(x, 1) for x in observation])))
 
     simulation_return += reward * (time_step**GAMMA_DISCOUNT_FACTOR)
 

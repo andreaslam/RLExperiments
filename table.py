@@ -1,8 +1,18 @@
 import random
 import numpy as np
 
-
 class Agent:
+    """
+    Represents a reinforcement learning agent using Q-learning.
+
+    Attributes:
+        table (dict): Dictionary to store Q-values for each state.
+        action_space (int): Number of possible actions.
+        gamma_discount_factor (float): Discount factor for future rewards.
+        epsilon_greedy_factor (float): Factor for exploration-exploitation trade-off.
+        learning_rate (float): Rate at which the agent learns from new information.
+    """
+
     def __init__(
         self,
         table,
@@ -11,6 +21,16 @@ class Agent:
         epsilon_greedy_factor=0.99,
         learning_rate=1e-3,
     ):
+        """
+        Initializes the Agent with necessary parameters.
+
+        Args:
+            table (dict): Dictionary to store Q-values for each state.
+            action_space (int): Number of possible actions.
+            gamma_discount_factor (float, optional): Discount factor for future rewards (default is 0.9).
+            epsilon_greedy_factor (float, optional): Factor for exploration-exploitation trade-off (default is 0.99).
+            learning_rate (float, optional): Rate at which the agent learns (default is 1e-3).
+        """
         self.table = table
         self.gamma_discount_factor = gamma_discount_factor
         self.epsilon_greedy_factor = epsilon_greedy_factor
@@ -18,54 +38,78 @@ class Agent:
         self.action_space = action_space
 
     def check_state_exists(self, state):
-        for entry in self.table:
-            if np.array_equal(entry[0], state):
-                return entry
-        return None
+        """
+        Checks if the given state exists in the Q-table.
+
+        Args:
+            state: State to check in the Q-table.
+
+        Returns:
+            list or None: Q-values associated with the state if it exists, else None.
+        """
+        return self.table.get(state)
 
     def get_action(self, state):
         """
+        Selects an action based on epsilon-greedy policy.
 
-        `action` refers to the index of the q_values within the q_value sublist of q_entry
-         q_entry = [
-            [state_0, [q_value_a, q_value_b, q_value_c, ...],
-            [state_1, [q_value_d, q_value_e, q_value_f, ...],
-            ... ]
-            ]
+        Args:
+            state: Current state for which action needs to be selected.
+
+        Returns:
+            int: Selected action index.
         """
-
         q_entry = self.check_state_exists(state)
 
         if q_entry is None:
             q_entry = self.add_entry(state)
 
-        if random.random() > self.epsilon_greedy_factor:
+        if random.random() < self.epsilon_greedy_factor:
             action = random.randint(0, self.action_space - 1)
         else:
-            action = np.argmax(q_entry[1])
+            action = np.argmax(q_entry)
 
+        print(f"Selected action: {action}")
         return action
 
     def update_q_estimate(self, state, action, reward, next_state):
-        current_q = self.check_state_exists(state)
+        """
+        Updates the Q-value estimate based on the observed reward and next state.
 
-        assert current_q is not None
+        Args:
+            state: Current state.
+            action: Action taken in the current state.
+            reward: Reward received after taking the action.
+            next_state: Next state observed after taking the action.
+        """
+        current_q = self.check_state_exists(state)
+        assert current_q is not None, f"No Q-value entry found for state: {state}"
 
         next_q = self.check_state_exists(next_state)
         if next_q is None:
             next_q = self.add_entry(next_state)
 
-        best_next_action = np.argmax(next_q[1])
+        best_next_action = np.max(next_q)
 
-        td_target = reward + self.gamma_discount_factor * next_q[1][best_next_action]
-        td_delta = td_target - current_q[1][action]
+        td_target = reward + self.gamma_discount_factor * best_next_action
+        td_delta = td_target - current_q[action]
 
-        current_q[1][action] += self.learning_rate * td_delta
+        current_q[action] += self.learning_rate * td_delta
+
+        print(f"Updated Q-value for state {state}, action {action}: {current_q}")
 
     def add_entry(self, new_state):
-        new_entry = [
-            new_state,
-            [random.uniform(-1, 1) for _ in range(self.action_space)],
-        ]
-        self.table.append(new_entry)
+        """
+        Adds a new state entry to the Q-table with initial random Q-values.
+
+        Args:
+            new_state: New state to add to the Q-table.
+
+        Returns:
+            list: Initial Q-values assigned to the new state.
+        """
+        new_entry = [random.uniform(-1, 1) for _ in range(self.action_space)]
+        self.table[new_state] = new_entry
+
+        print(f"Added new state entry: {new_state}, Q-values: {new_entry}")
         return new_entry
