@@ -1,7 +1,6 @@
 import random
 import numpy as np
 
-
 class Agent:
     """
     Represents a reinforcement learning agent using Q-learning.
@@ -23,7 +22,12 @@ class Agent:
         initial_epsilon_greedy_factor=0.25,
         initial_learning_rate=1e-1,
         num_states_in_linspace=100,
-        parameter_decay_factor=0.9,
+        parameter_decay_factor=0.97,
+        performance_threshold=0.1,
+        performance_check_interval=10,
+        lr_increase_threshold=5,
+        eps_increase_threshold=5,
+        exploratory_constant=1.5,
     ):
         """
         Initializes the Agent with necessary parameters.
@@ -47,11 +51,18 @@ class Agent:
         self.steps = 0
         self.delta_prev = 0.0
         self.total_weights = 0.0
-        # TODO work on getting the average and stdev for preloaded tables
         self.weights_average = 0.0
         self.weights_stdev = 0.0
         self.parameter_decay_factor = parameter_decay_factor
-        self.num_optimal = 0 # number of times the agent chose the greedy move
+        self.performance_threshold = performance_threshold
+        self.performance_check_interval = performance_check_interval
+        self.performance_metric = []
+        self.num_optimal = 0
+        self.lr_increase_count = 0
+        self.lr_increase_threshold = lr_increase_threshold
+        self.eps_increase_count = 0
+        self.eps_increase_threshold = eps_increase_threshold
+        self.exploratory_constant = exploratory_constant
         self.discretise_inputs()
 
     def check_state_exists(self, state):
@@ -84,10 +95,11 @@ class Agent:
         if q_entry is None:
             q_entry = self.add_entry(state)
         
-        if random.random() < self.epsilon_greedy_factor:
-            action_logit = np.random.choice(q_entry, p=self.softmax(q_entry))
+        probability_distribution = self.softmax(q_entry)
+        
+        if random.random() < self.epsilon_greedy_factor or np.sqrt(self.num_optimal) * self.exploratory_constant > (1 - self.epsilon_greedy_factor) * self.steps:
+            action_logit = np.random.choice(q_entry, p=probability_distribution)
             action = q_entry.index(action_logit)
-            self.num_optimal = 0
         else:
             action = np.argmax(q_entry)
             self.num_optimal += 1
@@ -109,6 +121,7 @@ class Agent:
             reward: Reward received after taking the action.
             next_state: Next state observed after taking the action.
         """
+        # print(reward, self.learning_rate, self.epsilon_greedy_factor)
         current_q = self.check_state_exists(state)
         assert current_q is not None, f"No Q-value entry found for state: {state}"
 
@@ -122,9 +135,11 @@ class Agent:
         td_delta = td_target - current_q[action]
         current_q[action] += self.learning_rate * td_delta
 
-        # print(f"Updated Q-value for state {state}, action {action}: {current_q}")
-
         self.steps += 1
+        self.performance_metric.append(td_delta)
+
+        if self.steps % self.performance_check_interval == 0:
+            self.adjust_parameters()
 
     def add_entry(self, new_state):
         """
@@ -137,17 +152,13 @@ class Agent:
             list: Initial Q-values assigned to the new state.
         """
 
-        # random.random() serves as fallback for if weights and standard deviation are 0
-
         new_entry = [
             random.uniform(
-                self.weights_average - self.weights_stdev - random.random(),
-                self.weights_average + self.weights_stdev + random.random(),
+                self.weights_stdev - random.random(),
+                self.weights_stdev + random.random(),
             )
             for _ in range(self.action_space)
         ]
-        
-        # print(self.weights_average, self.weights_stdev, new_entry)
         
         self.table[new_state] = new_entry
 
@@ -160,7 +171,7 @@ class Agent:
         self.weights_average = self.total_weights / len(self.table)
         self.weights_stdev = np.sqrt(
             max(self.total_weights / (len(self.table) - self.weights_average**2), 0)
-        ).item()
+        )
 
     def discretise_inputs(self):
         def safe_bounds(low, high):
@@ -182,3 +193,25 @@ class Agent:
         for i, (val, linspace) in enumerate(zip(values, self.linspace_range)):
             quantised_values[i] = linspace[np.argmin(np.abs(linspace - val))]
         return quantised_values
+
+    def adjust_parameters(self):
+        """
+        Adjusts the learning rate and epsilon value based on performance.
+        """
+        performance = np.mean(np.abs(self.performance_metric[-self.performance_check_interval:]))
+        # Decrease learning rate and epsilon factor if performance is poor
+        if performance > self.performance_threshold:
+            if self.lr_increase_count < self.lr_increase_threshold:
+                self.learning_rate = max(self.learning_rate / self.parameter_decay_factor, 0.0001)
+                self.lr_increase_count += 1
+            if self.eps_increase_count < self.eps_increase_threshold:
+                self.epsilon_greedy_factor = max(self.epsilon_greedy_factor / self.parameter_decay_factor, 0.01)
+                self.eps_increase_count += 1
+        # Increase learning rate and epsilon factor if performance is good
+        else:
+            if self.lr_increase_count > 0:
+                self.learning_rate = min(self.learning_rate * self.parameter_decay_factor, 0.99)
+                self.lr_increase_count -= 1
+            if self.eps_increase_count > 0:
+                self.epsilon_greedy_factor = min(self.epsilon_greedy_factor * self.parameter_decay_factor, 0.99)
+                self.eps_increase_count -= 1

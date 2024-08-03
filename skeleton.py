@@ -13,7 +13,7 @@ from table import Agent
 env = gym.make("CartPole-v1")
 
 discount = 0.9
-turns = 10000000
+turns = 1000000
 actions = (0, 1)
 
 # discretized state -> learned q-value
@@ -93,9 +93,9 @@ agent = Agent(
     q_table,
     env.action_space.n,
     env,
-    gamma_discount_factor=0.9,
-    initial_epsilon_greedy_factor=0.1,
-    initial_learning_rate=1e-1,
+    gamma_discount_factor=0.975,
+    initial_epsilon_greedy_factor=0.2,
+    initial_learning_rate=3e-1,
 )
 
 for turn in tqdm(range(turns), desc="updating q tables"):
@@ -112,10 +112,12 @@ for turn in tqdm(range(turns), desc="updating q tables"):
         reward = +1
 
     update_tables(old_state, action, state, reward, agent)
+    # print(turn,action, state, reward,)
     episode_length += 1
 
     if terminated or truncated:
         episode_lengths.append(episode_length)
+        print("e_len", episode_length)
         episode_length = 0
         state, info = env.reset()
 
