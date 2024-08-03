@@ -23,13 +23,11 @@ class Agent:
         initial_epsilon_greedy_factor=0.35,
         initial_learning_rate=3e-1,
         num_states_in_linspace=10,
-        parameter_decay_factor=0.99,
+        parameter_decay_factor=0.9,
         performance_threshold=0.15,
         performance_check_interval=5,
         performance_check_history=3,
-        lr_increase_threshold=50,
-        eps_increase_threshold=15,
-        exploratory_constant=1.1,
+        exploratory_constant=1.2,
         low_limit=-10,
         high_limit=10,
         minimum_learning_rate=0.01,
@@ -64,8 +62,6 @@ class Agent:
         self.performance_check_interval = performance_check_interval
         self.td_delta_metric = []
         self.num_optimal = 0
-        self.lr_increase_threshold = lr_increase_threshold
-        self.eps_increase_threshold = eps_increase_threshold
         self.exploratory_constant = exploratory_constant
         self.minimum_learning_rate = minimum_learning_rate
         self.minimum_epsilon_greedy_factor = minimum_epsilon_greedy_factor
@@ -101,14 +97,14 @@ class Agent:
         q_entry = self.check_state_exists(state)
         if q_entry is None:
             q_entry = self.add_entry(state)
-        probability_distribution = self.softmax(q_entry)
+
         if (
             random.random() < self.epsilon_greedy_factor
             or np.sqrt(self.num_optimal) * self.exploratory_constant
             > (1 - self.epsilon_greedy_factor) * self.steps
         ):
-            action_logit = np.random.choice(q_entry, p=probability_distribution)
-            action = q_entry.index(action_logit)
+            probability_distribution = self.softmax(q_entry)
+            action = np.random.choice(len(q_entry), p=probability_distribution)
             noise = np.random.normal(np.mean(q_entry), np.std(q_entry), len(q_entry))
             q_entry += noise
         else:
@@ -199,52 +195,43 @@ class Agent:
         self.linspace_range = np.array(linspace_ranges)
 
     def quantise_to_linspace(self, values):
-        quantised_values = np.empty_like(values)
-        for i, (val, linspace) in enumerate(zip(values, self.linspace_range)):
-            quantised_values[i] = linspace[np.argmin(np.abs(linspace - val))]
-        return quantised_values
+        return np.array(
+            [
+                linspace[np.argmin(np.abs(linspace - val))]
+                for val, linspace in zip(values, self.linspace_range)
+            ]
+        )
 
     def decrease_parameters(self):
-        prev_lr = self.learning_rate
-        prev_eps = self.epsilon_greedy_factor
-
-        self.learning_rate = max(
-            self.learning_rate * self.parameter_decay_factor,
-            self.minimum_learning_rate,
-        ) + random.uniform(
-            -self.minimum_learning_rate / 2, self.minimum_learning_rate / 2
+        self.learning_rate = abs(
+            max(
+                self.learning_rate * self.parameter_decay_factor,
+                self.minimum_learning_rate,
+            )
+            + random.uniform(-0.0001, 0.0001)
         )
-        lr_diff_percentage = abs((self.learning_rate - prev_lr) / prev_lr)
-
-        self.epsilon_greedy_factor = max(
-            self.epsilon_greedy_factor * self.parameter_decay_factor,
-            self.minimum_epsilon_greedy_factor,
-        ) + random.uniform(
-            -self.minimum_epsilon_greedy_factor / 2,
-            self.minimum_epsilon_greedy_factor / 2,
+        self.epsilon_greedy_factor = abs(
+            max(
+                self.epsilon_greedy_factor * self.parameter_decay_factor,
+                self.minimum_epsilon_greedy_factor,
+            )
+            + random.uniform(
+                -0.0001,
+                0.0001,
+            )
         )
-        eps_diff_percentage = abs((self.epsilon_greedy_factor - prev_eps) / prev_eps)
-
-        self.lr_increase_threshold *= 1 + lr_diff_percentage
-        self.eps_increase_threshold *= 1 + eps_diff_percentage
 
     def increase_parameters(self):
         max_lr, max_eps = 0.90, 0.90
-        prev_lr = self.learning_rate
-        prev_eps = self.epsilon_greedy_factor
 
-        self.learning_rate = min(
-            self.learning_rate / self.parameter_decay_factor, max_lr
-        ) + random.uniform(-(1 - max_lr / 2), (1 - max_lr / 2))
-        lr_diff_percentage = abs((self.learning_rate - prev_lr) / prev_lr)
-
-        self.epsilon_greedy_factor = min(
-            self.epsilon_greedy_factor / self.parameter_decay_factor, max_eps
-        ) + random.uniform(-(1 - max_eps / 2), (1 - max_eps / 2))
-        eps_diff_percentage = abs((self.epsilon_greedy_factor - prev_eps) / prev_eps)
-
-        self.lr_increase_threshold *= 1 - lr_diff_percentage
-        self.eps_increase_threshold *= 1 - eps_diff_percentage
+        self.learning_rate = abs(
+            min(self.learning_rate / self.parameter_decay_factor, max_lr)
+            + random.uniform(-0.001, 0.001)
+        )
+        self.epsilon_greedy_factor = abs(
+            min(self.epsilon_greedy_factor / self.parameter_decay_factor, max_eps)
+            + random.uniform(-0.001, 0.001)
+        )
 
     def adjust_parameters(self):
         performance = np.mean(
@@ -254,9 +241,10 @@ class Agent:
                 ]
             )
         )
-        if (performance - self.previous_performance) ** 2 / (
-            max(self.previous_performance, 1)
-        ) > -self.performance_target:
+        improvement_percent = (performance - self.previous_performance) / max(
+            self.previous_performance, 1
+        )
+        if improvement_percent < -self.performance_target:
             self.decrease_parameters()
         else:
             self.increase_parameters()

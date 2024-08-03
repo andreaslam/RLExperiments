@@ -9,7 +9,7 @@ from plotter import SimulationReturnPlotter
 # configure gymnasium setup
 
 IS_RENDER = False
-GAME = "CartPole-v1"
+GAME = "Acrobot-v1"
 
 Q_TABLE_PATH = "agents"
 
@@ -32,9 +32,8 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = int(10000)
+TOTAL_TRAINING_STEPS = 100000
 GAMMA_DISCOUNT_FACTOR = 0.9
-EPSILON_GREEDY_FACTOR = 0.1
 
 
 q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
@@ -52,14 +51,7 @@ else:
     print("Initialising new Q Table")
     q_table = {}
 
-agent = Agent(
-    q_table,
-    action_space,
-    env,
-    gamma_discount_factor=GAMMA_DISCOUNT_FACTOR,
-    initial_epsilon_greedy_factor=EPSILON_GREEDY_FACTOR,
-    initial_learning_rate=1e-1,
-)
+agent = Agent(q_table, action_space, env, low_limit=-30, high_limit=13)
 
 plotter = SimulationReturnPlotter()
 
@@ -93,8 +85,6 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
         plotter.register_datapoint(simulation_return, "TDAgent")
 
         simulation_return = 0.0
-        with open(q_table_path, "wb") as f:
-            pickle.dump(agent.table, f)
 
         len_sim = 0
 
