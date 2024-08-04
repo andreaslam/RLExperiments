@@ -123,13 +123,12 @@ episode_lengths = []
 episode_length = 0
 state, info = env.reset()
 
-
+training_settings = TrainingSettings()
 agent = TDTabularAgent(
+    observation_space,
     env.action_space.n,
-    env,
-    gamma_discount_factor=0.9,
-    initial_epsilon_greedy_factor=0.5,
-    initial_learning_rate=3e-3,
+    env, 
+    training_settings
 )
 
 for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
