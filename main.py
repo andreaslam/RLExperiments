@@ -2,19 +2,19 @@ import gymnasium as gym
 import pickle
 from tqdm import tqdm
 import os
-from table import Agent
-import numpy as np
+from table import TDTabularAgent
+from settings import TrainingSettings
 from plotter import SimulationReturnPlotter
 
 # configure gymnasium setup
 
 IS_RENDER = False
-GAME = "Acrobot-v1"
+GAME = "CartPole-v1"
 
-Q_TABLE_PATH = "agents"
+Q_TABLE_FOLDER = "agents_data"
 
-if not os.path.exists(Q_TABLE_PATH):
-    os.makedirs(Q_TABLE_PATH)
+if not os.path.exists(Q_TABLE_FOLDER):
+    os.makedirs(Q_TABLE_FOLDER)
     print("Directory created successfully!")
 else:
     print("Directory already exists!")
@@ -32,26 +32,26 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 100000
+TOTAL_TRAINING_STEPS = 1000000
 GAMMA_DISCOUNT_FACTOR = 0.9
 
 
-q_table_path = f"{Q_TABLE_PATH}/q_table_{GAME}.pkl"
+q_table_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
 
 # check if Q-table exists
+
+settings = TrainingSettings()
+agent = TDTabularAgent(action_space, env, settings)
 
 if os.path.isfile(q_table_path):
     print("loading existing Q Table")
     if os.path.getsize(q_table_path) > 0:
-        with open(q_table_path, "rb") as f:
-            unpickler = pickle.Unpickler(f)
-            q_table = unpickler.load()
+        agent.load(q_table_path)
 else:
     # initialise Q-table
     print("Initialising new Q Table")
     q_table = {}
 
-agent = Agent(q_table, action_space, env, low_limit=-30, high_limit=13)
 
 plotter = SimulationReturnPlotter()
 
@@ -67,7 +67,7 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
-    agent.update_q_estimate(
+    agent.update_estimate(
         tuple(agent.quantise_to_linspace(observation_prev)),
         action,
         reward,
@@ -94,7 +94,6 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
 
 env.close()
 
-with open(q_table_path, "wb") as f:
-    pickle.dump(agent.table, f)
+agent.save(q_table_path)
 
 plotter.plot()

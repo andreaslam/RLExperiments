@@ -1,26 +1,61 @@
-from collections import defaultdict
-import random
 import statistics
 
 import gymnasium as gym
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import pickle
+import os
+from table import TDTabularAgent
+from settings import TrainingSettings
 
-from table import Agent
+# configure gymnasium setup
+
+IS_RENDER = False
+GAME = "CartPole-v1"
+
+Q_TABLE_FOLDER = "agents_data"
+
+if not os.path.exists(Q_TABLE_FOLDER):
+    os.makedirs(Q_TABLE_FOLDER)
+    print("Directory created successfully!")
+else:
+    print("Directory already exists!")
 
 
-env = gym.make("CartPole-v1")
+if IS_RENDER:
+    env = gym.make(GAME, render_mode="human")
+else:
+    env = gym.make(GAME)
 
-discount = 0.9
-turns = 100000
-actions = (0, 1)
+
+observation, info = env.reset()
+observation_space = observation.shape
+action_space = env.action_space.n
+
+# training settings
+
+TOTAL_TRAINING_STEPS = 200000000
+GAMMA_DISCOUNT_FACTOR = 0.9
+
+
+q_table_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
+
+# check if Q-table exists
+settings = TrainingSettings()
+agent = TDTabularAgent(action_space, env, settings)
+
+if os.path.isfile(q_table_path):
+    print("loading existing Q Table")
+    if os.path.getsize(q_table_path) > 0:
+        agent.load(q_table_path)
+else:
+    # initialise Q-table
+    print("Initialising new Q Table")
+    q_table = {}
+
 
 # discretized state -> learned q-value
-q_table = defaultdict(lambda: 0.0)
 
 # discretized state -> number of times state has been seen
-state_count = defaultdict(lambda: 0)
 
 
 def greediness(count):
@@ -89,16 +124,15 @@ episode_length = 0
 state, info = env.reset()
 
 
-agent = Agent(
-    q_table,
+agent = TDTabularAgent(
     env.action_space.n,
     env,
     gamma_discount_factor=0.9,
     initial_epsilon_greedy_factor=0.5,
-    initial_learning_rate=1e-2,
+    initial_learning_rate=3e-3,
 )
 
-for turn in tqdm(range(turns), desc="updating q tables"):
+for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
     action = choose_action(state, agent)
 
     old_state = state
@@ -126,3 +160,5 @@ moving_average = [
 plt.plot(moving_average)
 plt.show()
 plt.savefig("skeleton.png")
+
+agent.save(q_table_path)
