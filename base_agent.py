@@ -3,7 +3,14 @@ from abc import ABC, abstractmethod
 
 
 class Agent(ABC):
-    def __init__(self, observation_space, action_space, env, training_settings):
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        env,
+        training_settings,
+        quantise_inputs=True,
+    ):
         """
         Attributes:
             observation_space: Description of raw observation from environment.
@@ -16,6 +23,10 @@ class Agent(ABC):
         self.action_space = action_space
         self.env = env
         self.settings = training_settings
+        self.quantise = quantise_inputs
+        self.linspace_range = None
+
+        self.discretise_inputs()
 
     def softmax(self, x):
         """
@@ -54,6 +65,14 @@ class Agent(ABC):
         ...
 
     @abstractmethod
+    def prepare_input(self, raw_observation):
+        """
+        Convert the observation obtained from the environment to a format usable for the `Agent`.
+        """
+
+        ...
+
+    @abstractmethod
     def save(self, file_path):
         """
         Saves the Agent's data to a pickle file.
@@ -72,3 +91,45 @@ class Agent(ABC):
             file_path (str): File path from which the data should be loaded.
         """
         ...
+
+    def discretise_inputs(self):
+        """
+
+        Setting the quantisation standard for incoming observations and is stored at `TDTabularAgent.linspace_range`
+
+        The number of states to sample is determined by `TrainingSettings.num_states_in_linspace`
+
+        Maximum value = 100
+
+        Minimum value = 0.001
+
+        """
+
+        lows = self.env.observation_space.low
+        highs = self.env.observation_space.high
+        num_states = self.settings.num_states_in_linspace
+
+        linspace_ranges = []
+        for low, high in zip(lows, highs):
+            low = np.clip(low, self.settings.low_limit, self.settings.high_limit)
+            high = np.clip(high, self.settings.low_limit, self.settings.high_limit)
+            low = max(low, 0.001)
+            high = min(high, 100)
+            linspace_ranges.append(np.linspace(low, high, num_states))
+
+        self.linspace_range = np.array(linspace_ranges)
+
+    def operate_quantise_on_inputs(self, raw_observation):
+        """
+        Applies quantisation based on quantised steps set in `Agent.discretise_inputs()` to raw observation.
+
+        Args:
+            raw_observation: Raw observation to be quantised
+        """
+        quantised_values = np.empty_like(raw_observation)
+
+        for i, linspace in enumerate(self.linspace_range):
+            idx = np.abs(linspace - raw_observation[i]).argmin()
+            quantised_values[i] = linspace[idx]
+
+        return quantised_values

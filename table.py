@@ -5,13 +5,20 @@ from base_agent import Agent
 
 
 class TDTabularAgent(Agent):
-    def __init__(self, observation_space, action_space, env, training_settings):
-        super().__init__(observation_space, action_space, env, training_settings)
+    def __init__(
+        self,
+        observation_space,
+        action_space,
+        env,
+        training_settings,
+        quantise_inputs=True,
+    ):
+        super().__init__(
+            observation_space, action_space, env, training_settings, quantise_inputs
+        )
 
         self.table = {}
         self.td_delta_metric = []
-
-        self.linspace_range = None
 
         self.steps = 0
         self.delta_prev = 0.0
@@ -21,12 +28,11 @@ class TDTabularAgent(Agent):
         self.num_optimal = 0
         self.previous_performance = 0.0
 
-        self.discretise_inputs()
-
     def check_state_exists(self, state):
-        return self.table.get(state, None)
+        return self.table.get(tuple(state), None)
 
     def get_action(self, state, greedy=False):
+        state = self.prepare_input(state)
         q_entry = self.check_state_exists(state)
         if q_entry is None:
             q_entry = self.add_entry(state)
@@ -50,6 +56,8 @@ class TDTabularAgent(Agent):
         return action
 
     def update_estimate(self, state, action, reward, next_state):
+        state, next_state = self.prepare_input(state), self.prepare_input(next_state)
+
         current_q = self.check_state_exists(state)
         assert current_q is not None, f"No Q-value entry found for state: {state}"
 
@@ -67,7 +75,7 @@ class TDTabularAgent(Agent):
         self.td_delta_metric.append(td_delta)
 
         if self.steps % self.settings.performance_check_interval == 0:
-            self.adjust_parameters()
+            self.adjust_hyperparameters()
 
     def add_entry(self, new_state):
         """
@@ -88,7 +96,7 @@ class TDTabularAgent(Agent):
             for _ in range(self.action_space)
         ]
 
-        self.table[new_state] = new_entry
+        self.table[tuple(new_state)] = new_entry
 
         self.calibrate_new_entries(new_entry)
 
@@ -109,50 +117,21 @@ class TDTabularAgent(Agent):
             max(self.total_weights / (len(self.table) - self.weights_average**2), 0)
         )
 
-    def discretise_inputs(self):
-        """
-
-        Setting the quantisation standard for incoming observations and is stored at `TDTabularAgent.linspace_range`
-
-        The number of states to sample is determined by `TrainingSettings.num_states_in_linspace`
-
-        Maximum value = 100
-
-        Minimum value = 0.001
-
-        """
-
-        lows = self.env.observation_space.low
-        highs = self.env.observation_space.high
-        num_states = self.settings.num_states_in_linspace
-
-        linspace_ranges = []
-        for low, high in zip(lows, highs):
-            low = np.clip(low, self.settings.low_limit, self.settings.high_limit)
-            high = np.clip(high, self.settings.low_limit, self.settings.high_limit)
-            low = max(low, 0.001)
-            high = min(high, 100)
-            linspace_ranges.append(np.linspace(low, high, num_states))
-
-        self.linspace_range = np.array(linspace_ranges)
-
-    def quantise_to_linspace(self, values):
+    def prepare_input(self, raw_observation):
         """
 
         Turn continuous observation spaces to discrete values by quantising raw observation data to the nearest quantised state.
 
         Args:
-            values tuple(numpy.ndarray): values to be quantised
+            raw_observatoin tuple(numpy.ndarray): values to be quantised
 
         Returns:
             tuple(numpy.ndarray): quantised values
 
         """
-
-        quantised_values = np.empty_like(values)
-        for i, (val, linspace) in enumerate(zip(values, self.linspace_range)):
-            quantised_values[i] = linspace[np.argmin(np.abs(linspace - val))]
-        return quantised_values
+        if self.quantise:
+            return tuple(self.operate_quantise_on_inputs(raw_observation))
+        return tuple(raw_observation)
 
     def decrease_parameters(self):
         """
@@ -203,7 +182,7 @@ class TDTabularAgent(Agent):
             + random.uniform(-0.001, 0.001)
         )
 
-    def adjust_parameters(self):
+    def adjust_hyperparameters(self):
         """
         Adjusts the Learning Rate (LR) and epsilon-greedy factor (eps) depending on previous performance
         """

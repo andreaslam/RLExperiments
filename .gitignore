@@ -1,4 +1,5 @@
-/agents/
+/agents_data/
+/archived_agents/
 /__pycache__/
 .DS_Store
 /agent_returns_plot.png

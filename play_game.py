@@ -3,6 +3,8 @@ import pickle
 from tqdm import tqdm
 import os
 from table import TDTabularAgent
+import torch
+from network import LinearNetModel, NNAgent
 from settings import TrainingSettings
 import numpy as np
 
@@ -20,7 +22,7 @@ action_space = env.action_space.n
 
 Q_TABLE_FOLDER = "agents_data"
 
-Q_TABLE_PATH = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
+Q_TABLE_PATH = f"{Q_TABLE_FOLDER}/agent_{GAME}.pt"
 GAMMA_DISCOUNT_FACTOR = 0.99
 
 while True:
@@ -31,16 +33,21 @@ while True:
     except Exception:
         pass
 
+
+settings = TrainingSettings(num_states_in_linspace=10)
+agent = NNAgent(
+    observation_space,
+    action_space,
+    env,
+    settings,
+    torch.jit.script(LinearNetModel(len(observation), action_space.item(), 100, 10)),
+)
+
 # check if Q-table exists
 if os.path.isfile(Q_TABLE_PATH):
-    with open(Q_TABLE_PATH, "rb") as f:
-        q_table = pickle.load(f)
+    agent.load(Q_TABLE_PATH)
 else:
     raise FileNotFoundError(f"{Q_TABLE_PATH} does not exist!")
-
-
-settings = TrainingSettings()
-agent = TDTabularAgent(observation_space, action_space, env, settings)
 
 simulation_return = 0.0
 
@@ -49,7 +56,7 @@ time_step = 0
 games_played = 0
 
 while games_played < num_games:
-    action = agent.get_action(tuple(agent.quantise_to_linspace(observation)), True)
+    action = agent.get_action(observation, True)
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)

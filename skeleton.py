@@ -4,15 +4,18 @@ import gymnasium as gym
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os
+import numpy as np
 from table import TDTabularAgent
 from settings import TrainingSettings
+import torch
+from network import NNAgent, LinearNetModel
 
 # configure gymnasium setup
 
 IS_RENDER = False
 GAME = "CartPole-v1"
 
-Q_TABLE_FOLDER = "agents_data"
+Q_TABLE_FOLDER = "./agents_data"
 
 if not os.path.exists(Q_TABLE_FOLDER):
     os.makedirs(Q_TABLE_FOLDER)
@@ -33,24 +36,40 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 200000000
+TOTAL_TRAINING_STEPS = 200000
 GAMMA_DISCOUNT_FACTOR = 0.9
 
-
-q_table_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
-
 # check if Q-table exists
-settings = TrainingSettings()
-agent = TDTabularAgent(action_space, env, settings)
 
-if os.path.isfile(q_table_path):
-    print("loading existing Q Table")
-    if os.path.getsize(q_table_path) > 0:
-        agent.load(q_table_path)
+
+settings = TrainingSettings()
+NN_AGENT = True
+if NN_AGENT:
+    agent_path = f"{Q_TABLE_FOLDER}/agent_{GAME}.pt"
+    agent = NNAgent(
+        observation_space,
+        action_space,
+        env,
+        settings,
+        torch.jit.script(LinearNetModel(len(observation), action_space.item(), 10, 10)),
+    )
+else:
+    agent_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
+    agent = TDTabularAgent(
+        observation_space,
+        action_space,
+        env,
+        settings,
+    )
+
+if os.path.isfile(agent_path):
+    print("loading existing Agent!")
+    print(agent_path)
+    if os.path.getsize(agent_path) > 0:
+        agent.load(agent_path)
 else:
     # initialise Q-table
-    print("Initialising new Q Table")
-    q_table = {}
+    print("Initialising new Agent!")
 
 
 # discretized state -> learned q-value
@@ -103,18 +122,18 @@ def choose_action(state, agent):
     The agent should choose what it believes to be the 'optimal' action with probability
     `greediness(state)`, and otherwise choose a random action.
     """
-    return agent.get_action(tuple(agent.quantise_to_linspace(state)))
+    return agent.get_action(state)
 
 
 def update_tables(state, action, new_state, reward, agent):
     """
     Update the `q_table` and `state_count` tables, based on the observed transition.
     """
-    agent.update_q_estimate(
-        tuple(agent.quantise_to_linspace(state)),
+    agent.update_estimate(
+        state,
         action,
         reward,
-        tuple(agent.quantise_to_linspace(new_state)),
+        new_state,
     )
 
 
@@ -124,14 +143,8 @@ episode_length = 0
 state, info = env.reset()
 
 training_settings = TrainingSettings()
-agent = TDTabularAgent(
-    observation_space,
-    env.action_space.n,
-    env, 
-    training_settings
-)
 
-for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
+for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="Training Agent"):
     action = choose_action(state, agent)
 
     old_state = state
@@ -149,6 +162,7 @@ for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
         # print("e_len", episode_length)
         episode_length = 0
         state, info = env.reset()
+        # agent.save(agent_path)
 
     # env.render()
 
@@ -159,5 +173,3 @@ moving_average = [
 plt.plot(moving_average)
 plt.show()
 plt.savefig("skeleton.png")
-
-agent.save(q_table_path)

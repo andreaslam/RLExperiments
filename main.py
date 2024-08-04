@@ -62,16 +62,16 @@ len_sim = 0
 # quantise inputs
 
 for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
-    action = agent.get_action(tuple(agent.quantise_to_linspace(observation)))
+    action = agent.get_action(tuple(agent.prepare_input(observation)))
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
     agent.update_estimate(
-        tuple(agent.quantise_to_linspace(observation_prev)),
+        tuple(agent.prepare_input(observation_prev)),
         action,
         reward,
-        tuple(agent.quantise_to_linspace(observation)),
+        tuple(agent.prepare_input(observation)),
     )
 
     if IS_RENDER:
