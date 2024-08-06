@@ -18,7 +18,6 @@ class TDTabularAgent(Agent):
         )
 
         self.table = {}
-
         self.steps = 0
         self.num_optimal = 0
         self.previous_performance = 0.0
@@ -44,11 +43,10 @@ class TDTabularAgent(Agent):
                 random.random()
                 < self.epsilon_greedy_factor
             ):
-                action = np.random.choice(len(q_entry))
-            else:
                 probability_distribution = self.softmax(q_entry)
                 action = np.random.choice(len(q_entry), p=probability_distribution)
-
+            else:
+                action = np.argmax(q_entry)
                 self.num_optimal += 1
         return action
 
@@ -59,7 +57,6 @@ class TDTabularAgent(Agent):
         
         current_q[action] += self.learning_rate * td_delta
         self.steps += 1
-
         self.adjust_hyperparameters()
 
     def add_entry(self, new_state):
@@ -73,7 +70,7 @@ class TDTabularAgent(Agent):
             list: Initial Q-values assigned to the new state.
         """
 
-        new_entry = np.random.uniform(-1, 1, self.action_space)
+        new_entry = np.random.uniform(0,0, self.action_space)
         self.table[tuple(new_state)] = new_entry
         return new_entry
 
@@ -92,13 +89,8 @@ class TDTabularAgent(Agent):
         return tuple(raw_observation)
 
     def adjust_hyperparameters(self):
-        self.epsilon_greedy_factor = self.settings.minimum_epsilon_greedy_factor + (
-            self.settings.epsilon_greedy_factor
-            - self.settings.minimum_epsilon_greedy_factor
-        ) * np.exp(-1.0 * self.steps / self.settings.parameter_decay_factor)
-        self.learning_rate = self.settings.learning_rate + (
-            self.settings.learning_rate - self.settings.minimum_learning_rate
-        ) * np.exp(-1.0 * self.steps / self.settings.parameter_decay_factor)
+        self.learning_rate = 30/(30+self.steps)
+        self.epsilon_greedy_factor = 1 - 20/(20+self.steps)
 
     def save(self, file_path):
         self.table["metadata_settings"] = self.settings
@@ -127,5 +119,4 @@ class TDTabularAgent(Agent):
         best_next_action = np.max(next_q)
 
         td_target = reward + self.settings.gamma_discount_factor * best_next_action
-        # print(td_target)
         return current_q, td_target
