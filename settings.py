@@ -4,16 +4,12 @@ class TrainingSettings:
         gamma_discount_factor=0.9,
         initial_epsilon_greedy_factor=0.45,
         initial_learning_rate=1e-1,
-        num_states_in_linspace=10,
-        parameter_decay_factor=0.9,
-        performance_threshold=0.2,
-        performance_check_interval=10,
-        performance_check_history=5,
-        exploratory_constant=1.1,
+        num_states_in_linspace=5,
+        parameter_decay_factor=0.95,
         low_limit=-10,
         high_limit=10,
-        minimum_learning_rate=0.01,
-        minimum_epsilon_greedy_factor=0.01,
+        minimum_learning_rate=0.001,
+        minimum_epsilon_greedy_factor=0.001,
     ):
         """
         Settings for the Reinforcement Learning agent.
@@ -39,15 +35,11 @@ class TrainingSettings:
         """
 
         self.gamma_discount_factor = gamma_discount_factor
-        self.initial_epsilon_greedy_factor = initial_epsilon_greedy_factor
-        self.initial_learning_rate = initial_learning_rate
+        self.epsilon_greedy_factor = initial_epsilon_greedy_factor
+        self.learning_rate = initial_learning_rate
         self.num_states_in_linspace = num_states_in_linspace
         self.parameter_decay_factor = parameter_decay_factor
-        self.performance_threshold = performance_threshold
-        self.performance_check_interval = performance_check_interval
-        self.performance_check_history = performance_check_history
-        self.exploratory_constant = exploratory_constant
         self.low_limit = low_limit
         self.high_limit = high_limit
-        self.minimum_learning_rate = minimum_learning_rate
         self.minimum_epsilon_greedy_factor = minimum_epsilon_greedy_factor
+        self.minimum_learning_rate = minimum_learning_rate

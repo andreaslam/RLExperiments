@@ -32,7 +32,7 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 1000000
+TOTAL_TRAINING_STEPS = 100000
 GAMMA_DISCOUNT_FACTOR = 0.9
 
 
@@ -41,7 +41,7 @@ q_table_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
 # check if Q-table exists
 
 settings = TrainingSettings()
-agent = TDTabularAgent(action_space, env, settings)
+agent = TDTabularAgent(observation_space, action_space, env, settings)
 
 if os.path.isfile(q_table_path):
     print("loading existing Q Table")
@@ -67,7 +67,7 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
-    agent.update_estimate(
+    agent.update_estimate_online(
         tuple(agent.prepare_input(observation_prev)),
         action,
         reward,

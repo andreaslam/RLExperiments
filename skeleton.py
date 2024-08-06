@@ -36,24 +36,34 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 200000
+TOTAL_TRAINING_STEPS = 1000000
 GAMMA_DISCOUNT_FACTOR = 0.9
 
 # check if Q-table exists
 
 
-settings = TrainingSettings()
-NN_AGENT = True
+NN_AGENT = False
 if NN_AGENT:
+    settings = TrainingSettings(
+        initial_learning_rate=1e-3,
+        initial_epsilon_greedy_factor=0.9,
+        parameter_decay_factor=0.9,
+    )
     agent_path = f"{Q_TABLE_FOLDER}/agent_{GAME}.pt"
     agent = NNAgent(
         observation_space,
         action_space,
         env,
         settings,
-        torch.jit.script(LinearNetModel(len(observation), action_space.item(), 10, 10)),
+        torch.jit.script(LinearNetModel(len(observation), action_space.item(), 100, 1)),
     )
 else:
+    settings = TrainingSettings(
+        initial_learning_rate=0.5,
+        initial_epsilon_greedy_factor=0.9,
+        parameter_decay_factor=100,
+        gamma_discount_factor=0.95,
+    )
     agent_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
     agent = TDTabularAgent(
         observation_space,
@@ -150,8 +160,8 @@ for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="Training Agent"):
     old_state = state
     state, reward, terminated, truncated, info = env.step(action)
 
-    if terminated:
-        reward = -10000
+    # if terminated:
+    #     reward = -100
 
     update_tables(old_state, action, state, reward, agent)
     # print(turn,action, state, reward,)
@@ -170,6 +180,6 @@ moving_average = [
     statistics.mean(episode_lengths[i : i + 100])
     for i in range(len(episode_lengths) - 100)
 ]
+# agent.save(agent_path)
 plt.plot(moving_average)
-plt.show()
 plt.savefig("skeleton.png")

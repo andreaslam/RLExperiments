@@ -1,4 +1,6 @@
 import numpy as np
+import warnings
+from concurrent.futures import ThreadPoolExecutor
 from abc import ABC, abstractmethod
 
 
@@ -25,8 +27,8 @@ class Agent(ABC):
         self.settings = training_settings
         self.quantise = quantise_inputs
         self.linspace_range = None
-
-        self.discretise_inputs()
+        if self.quantise:
+            self.discretise_inputs()
 
     def softmax(self, x):
         """
@@ -48,8 +50,6 @@ class Agent(ABC):
             action: Action to be played in the environment
         """
 
-        ...
-
     @abstractmethod
     def update_estimate(self, state, action, reward, next_state):
         """
@@ -62,35 +62,29 @@ class Agent(ABC):
             next_state: Next state observed after taking the action.
         """
 
-        ...
-
     @abstractmethod
     def prepare_input(self, raw_observation):
         """
         Convert the observation obtained from the environment to a format usable for the `Agent`.
         """
 
-        ...
-
     @abstractmethod
     def save(self, file_path):
         """
-        Saves the Agent's data to a pickle file.
+        Saves the `Agent`'s data to a file.
 
         Args:
             file_path (str): File path where the data should be saved.
         """
-        ...
 
     @abstractmethod
     def load(self, file_path):
         """
-        Loads the Agent's data from a pickle file.
+        Loads the `Agent`'s data from a file.
 
         Args:
             file_path (str): File path from which the data should be loaded.
         """
-        ...
 
     def discretise_inputs(self):
         """
@@ -126,6 +120,15 @@ class Agent(ABC):
         Args:
             raw_observation: Raw observation to be quantised
         """
+
+        # fallback for in case if `Agent.quantise_inputs` is modified (from false to tr)
+
+        if self.linspace_range is None:
+            warnings.warn(
+                "Agent.quantise_inputs has been modified from False to True! Discretising inputs..."
+            )
+            self.discretise_inputs()
+
         quantised_values = np.empty_like(raw_observation)
 
         for i, linspace in enumerate(self.linspace_range):
@@ -133,3 +136,15 @@ class Agent(ABC):
             quantised_values[i] = linspace[idx]
 
         return quantised_values
+
+    @abstractmethod
+    def adjust_hyperparameters(self):
+        """
+        Adjusts relevant hyperparameters depending on previous performance.
+        """
+
+    @abstractmethod
+    def prepare_training_targets(self, state, reward, next_state):
+        """
+        Prepare training targets based on the TD(0) algorithm
+        """
