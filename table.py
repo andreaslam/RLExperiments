@@ -39,12 +39,8 @@ class TDTabularAgent(Agent):
         if greedy:
             action = np.argmax(q_entry)
         else:
-            if (
-                random.random()
-                < self.epsilon_greedy_factor
-            ):
-                probability_distribution = self.softmax(q_entry)
-                action = np.random.choice(len(q_entry), p=probability_distribution)
+            if random.random() < self.epsilon_greedy_factor:
+                action = np.random.randint(self.action_space)
             else:
                 action = np.argmax(q_entry)
                 self.num_optimal += 1
@@ -54,7 +50,7 @@ class TDTabularAgent(Agent):
         current_q, td_target = self.prepare_training_targets(state, reward, next_state)
 
         td_delta = td_target - current_q[action]
-        
+
         current_q[action] += self.learning_rate * td_delta
         self.steps += 1
         self.adjust_hyperparameters()
@@ -70,7 +66,7 @@ class TDTabularAgent(Agent):
             list: Initial Q-values assigned to the new state.
         """
 
-        new_entry = np.random.uniform(0,0, self.action_space)
+        new_entry = np.random.uniform(-0.01, 0.01, self.action_space)
         self.table[tuple(new_state)] = new_entry
         return new_entry
 
@@ -89,24 +85,41 @@ class TDTabularAgent(Agent):
         return tuple(raw_observation)
 
     def adjust_hyperparameters(self):
-        self.learning_rate = 30/(30+self.steps)
-        self.epsilon_greedy_factor = 1 - 20/(20+self.steps)
+        self.learning_rate = 1 / (1 + self.steps * 0.00001)
+        self.epsilon_greedy_factor = 0.1 + (1.0 - 0.1) * np.exp(-0.005 * self.steps)
 
     def save(self, file_path):
-        self.table["metadata_settings"] = self.settings
-        self.table["metadata_steps"] = self.steps
+        metadata = {
+            "learning_rate": self.learning_rate,
+            "epsilon_greedy_factor": self.epsilon_greedy_factor,
+            "gamma_discount_factor": self.settings.gamma_discount_factor,
+            "num_states_in_linspace": self.settings.num_states_in_linspace,
+            "low_limit": self.settings.low_limit,
+            "high_limit": self.settings.high_limit,
+            "steps": self.steps,
+        }
+
+        save_data = {"q_table": self.table, "metadata": metadata}
 
         with open(file_path, "wb") as f:
-            pickle.dump(self.table, f)
+            pickle.dump(save_data, f)
 
     def load(self, file_path):
         with open(file_path, "rb") as f:
-            self.table = pickle.load(f)
+            save_data = pickle.load(f)
 
-        if "metadata_settings" in self.table:
-            self.settings = self.table["metadata_settings"]
-        if "metadata_steps" in self.table:
-            self.steps = self.table["metadata_steps"]
+        self.table = save_data["q_table"]
+        metadata = save_data["metadata"]
+
+        self.learning_rate = metadata["learning_rate"]
+        self.epsilon_greedy_factor = metadata["epsilon_greedy_factor"]
+        self.steps = metadata["steps"]
+
+        # Restore settings manually if needed
+        self.settings.gamma_discount_factor = metadata["gamma_discount_factor"]
+        self.settings.num_states_in_linspace = metadata["num_states_in_linspace"]
+        self.settings.low_limit = metadata["low_limit"]
+        self.settings.high_limit = metadata["high_limit"]
 
     def prepare_training_targets(self, state, reward, next_state):
         state, next_state = self.prepare_input(state), self.prepare_input(next_state)

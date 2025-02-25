@@ -4,12 +4,12 @@ class TrainingSettings:
         gamma_discount_factor=0.9,
         initial_epsilon_greedy_factor=0.45,
         initial_learning_rate=1e-1,
-        num_states_in_linspace=5,
-        parameter_decay_factor=0.95,
-        low_limit=-10,
-        high_limit=10,
-        minimum_learning_rate=0.001,
-        minimum_epsilon_greedy_factor=0.001,
+        num_states_in_linspace=100,
+        parameter_decay_factor=0.999,
+        low_limit=-5,
+        high_limit=5,
+        minimum_learning_rate=0.1,
+        minimum_epsilon_greedy_factor=0.1,
     ):
         """
         Settings for the Reinforcement Learning agent.

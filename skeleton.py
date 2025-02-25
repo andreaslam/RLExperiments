@@ -8,7 +8,7 @@ import numpy as np
 from table import TDTabularAgent
 from settings import TrainingSettings
 import torch
-from network import NNAgent, LinearNetModel
+from network import NNAgent, NNModel
 
 # configure gymnasium setup
 
@@ -55,14 +55,13 @@ if NN_AGENT:
         action_space,
         env,
         settings,
-        torch.jit.script(LinearNetModel(len(observation), action_space.item(), 100, 1)),
+        torch.jit.script(NNModel(len(observation), action_space.item(), 100, 1)),
     )
 else:
     settings = TrainingSettings(
         initial_learning_rate=1,
-        initial_epsilon_greedy_factor=0.9,
-        parameter_decay_factor=1000,
-        gamma_discount_factor=0.95,
+        initial_epsilon_greedy_factor=0.8,
+        gamma_discount_factor=0.99,
     )
     agent_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
     agent = TDTabularAgent(
@@ -160,8 +159,8 @@ for turn in tqdm(range(TOTAL_TRAINING_STEPS), desc="Training Agent"):
     old_state = state
     state, reward, terminated, truncated, info = env.step(action)
 
-    # if terminated:
-        # reward = -1000
+    if terminated:
+        reward = -1000
 
     update_tables(old_state, action, state, reward, agent)
     # print(turn,action, state, reward,)

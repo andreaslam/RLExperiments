@@ -2,7 +2,7 @@ import gymnasium as gym
 import os
 from table import TDTabularAgent
 import torch
-from network import LinearNetModel, NNAgent
+from network import NNModel, NNAgent
 from settings import TrainingSettings
 
 
@@ -52,12 +52,12 @@ time_step = 0
 games_played = 0
 
 while games_played < num_games:
-    action = agent.get_action(observation)
+    action = agent.get_action(observation, greedy=True)
 
     observation_prev = observation
     observation, reward, terminated, truncated, info = env.step(action)
 
-    simulation_return += reward * (time_step**GAMMA_DISCOUNT_FACTOR)
+    simulation_return += reward
 
     env.render()
 

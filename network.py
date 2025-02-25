@@ -59,10 +59,7 @@ class NNAgent(Agent):
         if greedy:
             action = np.argmax(outputs)
         else:
-            if (
-                random.random()
-                < self.epsilon_greedy_factor
-            ):
+            if random.random() < self.epsilon_greedy_factor:
                 action = np.random.choice(len(outputs))
             else:
                 probability_distribution = self.softmax(outputs)
@@ -96,7 +93,7 @@ class NNAgent(Agent):
             self.adjust_hyperparameters()
         self.steps += 1
 
-    def update_estimate(self, state, action, reward, new_state):
+    def update_estimate(self, state, action, reward, next_state):
         """
         Updates the Q-value estimates based on the observed reward and next state given a batch of inputs and targets.
         Args:
@@ -107,7 +104,7 @@ class NNAgent(Agent):
 
         Note: This is for [offline learning](https://huggingface.co/learn/deep-rl-course/en/unitbonus3/offline-online) in Temporal Difference Learning
         """
-        current_q, td_target = self.prepare_training_targets(state, reward, new_state)
+        current_q, td_target = self.prepare_training_targets(state, reward, next_state)
 
         self.model.train()
         self.optim.zero_grad()
@@ -159,7 +156,7 @@ class NNAgent(Agent):
         self.model = torch.jit.load(file_path, map_location=self.device).eval()
 
 
-class LinearNetModel(nn.Module):
+class NNModel(nn.Module):
     def __init__(
         self,
         num_input_nodes,

@@ -88,28 +88,27 @@ class Agent(ABC):
 
     def discretise_inputs(self):
         """
-
-        Setting the quantisation standard for incoming observations and is stored at `TDTabularAgent.linspace_range`
-
-        The number of states to sample is determined by `TrainingSettings.num_states_in_linspace`
-
-        Maximum value = 100
-
-        Minimum value = 0.001
-
+        Create quantisation bins based on the environment's observation space.
         """
-
         lows = self.env.observation_space.low
         highs = self.env.observation_space.high
         num_states = self.settings.num_states_in_linspace
 
         linspace_ranges = []
         for low, high in zip(lows, highs):
-            low = np.clip(low, self.settings.low_limit, self.settings.high_limit)
-            high = np.clip(high, self.settings.low_limit, self.settings.high_limit)
-            low = max(low, 0.001)
-            high = min(high, 100)
-            linspace_ranges.append(np.linspace(low, high, num_states))
+            # Instead of forcing positive limits, use the actual bounds.
+            # Optionally, clip only if the settings provide meaningful limits.
+            new_low = (
+                low
+                if self.settings.low_limit is None
+                else max(low, self.settings.low_limit)
+            )
+            new_high = (
+                high
+                if self.settings.high_limit is None
+                else min(high, self.settings.high_limit)
+            )
+            linspace_ranges.append(np.linspace(new_low, new_high, num_states))
 
         self.linspace_range = np.array(linspace_ranges)
 
