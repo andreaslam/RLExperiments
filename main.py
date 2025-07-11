@@ -3,7 +3,8 @@ from tqdm import tqdm
 import os
 from table import TDTabularAgent
 from settings import TrainingSettings
-from plotter import SimulationReturnPlotter
+import matplotlib.pyplot as plt
+import statistics
 
 # configure gymnasium setup
 IS_RENDER = False
@@ -27,13 +28,15 @@ observation_space = observation.shape
 action_space = env.action_space.n
 
 # Training settings
-TOTAL_TRAINING_STEPS = 1000000
-GAMMA_DISCOUNT_FACTOR = 0.99
+TOTAL_TRAINING_STEPS = 100000
+GAMMA_DISCOUNT_FACTOR = 0.9
 
 q_table_path = f"{Q_TABLE_FOLDER}/q_table_{GAME}.pkl"
 
 settings = TrainingSettings(
-    initial_learning_rate=0.95, initial_epsilon_greedy_factor=0.05
+    initial_learning_rate=1,
+    initial_epsilon_greedy_factor=0.8,
+    gamma_discount_factor=0.99,
 )
 
 agent = TDTabularAgent(observation_space, action_space, env, settings)
@@ -45,43 +48,61 @@ if os.path.isfile(q_table_path):
         agent.load(q_table_path)
 else:
     print("Initialising new Q Table")
-    q_table = {}
 
-plotter = SimulationReturnPlotter()
+# Track episode returns
+episode_returns = []
+current_return = 0.0
+discount_factor_tracker = 1.0
+episode_lengths = []
+episode_length = 0
 
-# For each episode, track discounted returns
-simulation_return = 0.0
-discount_factor_tracker = 1.0  # gamma^t within the current episode
+for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="Training Agent"):
 
-for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
     action = agent.get_action(observation)
     old_obs = observation
 
     observation, reward, terminated, truncated, info = env.step(action)
 
-    # Update the Q-value for old_obs, chosen action, and received reward
+    # Penalize falling
+    if terminated:
+        reward = -1000
+
     agent.update_estimate(old_obs, action, reward, observation)
 
-    # Update the discounted return
-    simulation_return += reward * discount_factor_tracker
+    current_return += reward * discount_factor_tracker
     discount_factor_tracker *= GAMMA_DISCOUNT_FACTOR
+    episode_length += 1
 
     if IS_RENDER:
         env.render()
 
-    # If episode ended, reset
+    # End of episode
     if terminated or truncated:
-        observation, info = env.reset()
-        plotter.register_datapoint(simulation_return, "TDAgent")
+        episode_returns.append(current_return)
+        episode_lengths.append(episode_length)
 
-        # Reset for the next episode
-        simulation_return = 0.0
+        current_return = 0.0
         discount_factor_tracker = 1.0
+        episode_length = 0
+        observation, info = env.reset()
 
 env.close()
 
 # Save final Q-table
 agent.save(q_table_path)
 
-# Plot returns
-plotter.plot()
+# Moving average (like first script)
+if len(episode_returns) >= 100:
+    moving_avg = [
+        statistics.mean(episode_returns[i : i + 100])
+        for i in range(len(episode_returns) - 99)
+    ]
+    plt.plot(moving_avg)
+    plt.title("Moving Average of Episode Returns (Window=100)")
+    plt.xlabel("Episode")
+    plt.ylabel("Avg Return")
+    plt.savefig("moving_average_returns.png")
+    plt.show()
+    plt.close()
+else:
+    print("Not enough episodes to compute moving average.")

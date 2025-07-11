@@ -36,7 +36,7 @@ action_space = env.action_space.n
 
 # training settings
 
-TOTAL_TRAINING_STEPS = 100000
+TOTAL_TRAINING_STEPS = 500000
 GAMMA_DISCOUNT_FACTOR = 0.9
 
 # check if Q-table exists
@@ -179,6 +179,7 @@ moving_average = [
     statistics.mean(episode_lengths[i : i + 100])
     for i in range(len(episode_lengths) - 100)
 ]
-# agent.save(agent_path)
+agent.save(agent_path)
 plt.plot(moving_average)
+plt.show()
 plt.savefig("skeleton.png")

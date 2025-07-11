@@ -4,7 +4,7 @@ class TrainingSettings:
         gamma_discount_factor=0.9,
         initial_epsilon_greedy_factor=0.45,
         initial_learning_rate=1e-1,
-        num_states_in_linspace=100,
+        num_states_in_linspace=25,
         parameter_decay_factor=0.999,
         low_limit=-5,
         high_limit=5,

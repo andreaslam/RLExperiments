@@ -72,5 +72,4 @@ while games_played < num_games:
         games_played += 1
     time_step += 1
 
-
 env.close()
