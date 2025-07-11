@@ -1,6 +1,5 @@
 import numpy as np
 import warnings
-from concurrent.futures import ThreadPoolExecutor
 from abc import ABC, abstractmethod
 
 

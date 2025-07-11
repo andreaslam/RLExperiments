@@ -60,4 +60,4 @@ for time_step in tqdm(range(TOTAL_TRAINING_STEPS), desc="updating q tables"):
 env.close()
 ```
 
-*Only applies to certain games. More specifically, deterministic games from [Farnama](https://gymnasium.farama.org/) that have a discrete action space with an observation of type `numpy.ndarray`.
+*Only applies to certain games. More specifically, deterministic games from [Farama](https://gymnasium.farama.org/) that have a discrete action space with an observation of type `numpy.ndarray`.

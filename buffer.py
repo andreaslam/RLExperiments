@@ -1,5 +1,4 @@
 import random
-import torch
 
 
 class ReplayBuffer:

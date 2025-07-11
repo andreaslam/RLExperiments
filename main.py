@@ -1,5 +1,4 @@
 import gymnasium as gym
-import pickle
 from tqdm import tqdm
 import os
 from table import TDTabularAgent
